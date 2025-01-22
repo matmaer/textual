@@ -119,13 +119,14 @@ content to the option list. This is a superset of [`OptionListContent`][textual.
 class OptionList(ScrollView, can_focus=True):
     """A vertical option list with bounce-bar highlighting."""
 
+    ALLOW_SELECT = False
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("down", "cursor_down", "Down", show=False),
         Binding("end", "last", "Last", show=False),
         Binding("enter", "select", "Select", show=False),
         Binding("home", "first", "First", show=False),
-        Binding("pagedown", "page_down", "Page down", show=False),
-        Binding("pageup", "page_up", "Page up", show=False),
+        Binding("pagedown", "page_down", "Page Down", show=False),
+        Binding("pageup", "page_up", "Page Up", show=False),
         Binding("up", "cursor_up", "Up", show=False),
     ]
     """
@@ -189,6 +190,7 @@ class OptionList(ScrollView, can_focus=True):
     """
     | Class | Description |
     | :- | :- |
+    | `option-list--option` | Target options that are not disabled, highlighted or have the mouse over them. |
     | `option-list--option-disabled` | Target disabled options. |
     | `option-list--option-highlighted` | Target the highlighted option. |
     | `option-list--option-hover` | Target an option that has the mouse over it. |
@@ -257,6 +259,17 @@ class OptionList(ScrollView, can_focus=True):
         wrap: bool = True,
         tooltip: RenderableType | None = None,
     ):
+        """Initialise the option list.
+
+        Args:
+            *content: The content for the option list.
+            name: The name of the option list.
+            id: The ID of the option list in the DOM.
+            classes: The CSS classes of the option list.
+            disabled: Whether the option list is disabled or not.
+            wrap: Should prompts be auto-wrapped?
+            tooltip: Optional tooltip.
+        """
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
 
         self._wrap = wrap
@@ -410,6 +423,7 @@ class OptionList(ScrollView, can_focus=True):
             event: The mouse movement event.
         """
         self._mouse_hovering_over = event.style.meta.get("option")
+        self.refresh()
 
     def _on_leave(self, _: events.Leave) -> None:
         """React to the mouse leaving the widget."""
