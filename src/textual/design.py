@@ -349,7 +349,7 @@ class ColorSystem:
 
         colors["button-foreground"] = get("button-foreground", foreground.hex)
         colors["button-color-foreground"] = get(
-            "button-color-foreground", colors["text"]
+            "button-color-foreground", foreground.hex
         )
         colors["button-focus-text-style"] = get("button-focus-text-style", "b reverse")
 
