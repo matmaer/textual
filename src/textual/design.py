@@ -264,10 +264,10 @@ class ColorSystem:
         )
         # The scrollbar colors
         colors["scrollbar"] = get(
-            "scrollbar", (primary.with_alpha(0.4)).hex,
+            "scrollbar", primary.with_alpha(0.4).hex,
         )
         colors["scrollbar-hover"] = get(
-            "scrollbar-hover", (primary.with_alpha(0.5)).hex,
+            "scrollbar-hover", primary.with_alpha(0.5).hex,
         )
         colors["scrollbar-active"] = get("scrollbar-active", primary.hex)
         colors["scrollbar-background"] = get(
