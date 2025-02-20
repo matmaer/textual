@@ -262,17 +262,13 @@ class ColorSystem:
         colors["surface-active"] = get(
             "surface-active", surface.lighten(self.luminosity_spread / 2.5).hex
         )
-
         # The scrollbar colors
         colors["scrollbar"] = get(
-            "scrollbar",
-            (Color.parse(colors["background-darken-1"]) + primary.with_alpha(0.4)).hex,
+            "scrollbar", (primary.with_alpha(0.4)).hex,
         )
         colors["scrollbar-hover"] = get(
-            "scrollbar-hover",
-            (Color.parse(colors["background-darken-1"]) + primary.with_alpha(0.5)).hex,
+            "scrollbar-hover", (primary.with_alpha(0.5)).hex,
         )
-        # colors["scrollbar-active"] = get("scrollbar-active", colors["panel-lighten-2"])
         colors["scrollbar-active"] = get("scrollbar-active", primary.hex)
         colors["scrollbar-background"] = get(
             "scrollbar-background", colors["background-darken-1"]
