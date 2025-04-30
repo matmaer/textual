@@ -196,6 +196,11 @@ class Screen(Generic[ScreenResultType], Widget):
     you can set the [sub_title][textual.screen.Screen.sub_title] attribute.
     """
 
+    HORIZONTAL_BREAKPOINTS: ClassVar[list[tuple[int, str]]] | None = None
+    """Horizontal breakpoints, will override [App.HORIZONTAL_BREAKPOINTS][textual.app.App.HORIZONTAL_BREAKPOINTS] if not `None`."""
+    VERTICAL_BREAKPOINTS: ClassVar[list[tuple[int, str]]] | None = None
+    """Vertical breakpoints, will override [App.VERTICAL_BREAKPOINTS][textual.app.App.VERTICAL_BREAKPOINTS] if not `None`."""
+
     focused: Reactive[Widget | None] = Reactive(None)
     """The focused [widget][textual.widget.Widget] or `None` for no focus.
     To set focus, do not update this value directly. Use [set_focus][textual.screen.Screen.set_focus] instead."""
@@ -289,6 +294,11 @@ class Screen(Generic[ScreenResultType], Widget):
 
         self.bindings_updated_signal: Signal[Screen] = Signal(self, "bindings_updated")
         """A signal published when the bindings have been updated"""
+
+        self.text_selection_started_signal: Signal[Screen] = Signal(
+            self, "selection_started"
+        )
+        """A signal published when text selection has started."""
 
         self._css_update_count = -1
         """Track updates to CSS."""
@@ -1306,7 +1316,7 @@ class Screen(Generic[ScreenResultType], Widget):
         inline_height = min(self.app.size.height, inline_height)
         return inline_height
 
-    def _screen_resized(self, size: Size):
+    def _screen_resized(self, size: Size) -> None:
         """Called by App when the screen is resized."""
         if self.stack_updates:
             self._refresh_layout(size)
@@ -1348,6 +1358,41 @@ class Screen(Generic[ScreenResultType], Widget):
         self._screen_resized(event.size)
         for screen in self.app._background_screens:
             screen._screen_resized(event.size)
+
+        horizontal_breakpoints = (
+            self.app.HORIZONTAL_BREAKPOINTS
+            if self.HORIZONTAL_BREAKPOINTS is None
+            else self.HORIZONTAL_BREAKPOINTS
+        ) or []
+
+        vertical_breakpoints = (
+            self.app.VERTICAL_BREAKPOINTS
+            if self.VERTICAL_BREAKPOINTS is None
+            else self.VERTICAL_BREAKPOINTS
+        ) or []
+
+        width, height = event.size
+        if horizontal_breakpoints:
+            self._set_breakpoints(width, horizontal_breakpoints)
+        if vertical_breakpoints:
+            self._set_breakpoints(height, horizontal_breakpoints)
+
+    def _set_breakpoints(
+        self, dimension: int, breakpoints: list[tuple[int, str]]
+    ) -> None:
+        """Set horizontal or vertical breakpoints.
+
+        Args:
+            dimension: Either the width or the height.
+            breakpoints: A list of breakpoints.
+
+        """
+        class_names = [class_name for _breakpoint, class_name in breakpoints]
+        self.remove_class(*class_names)
+        for breakpoint, class_name in sorted(breakpoints, reverse=True):
+            if dimension >= breakpoint:
+                self.add_class(class_name)
+                return
 
     def _update_tooltip(self, widget: Widget) -> None:
         """Update the content of the tooltip."""
@@ -1541,6 +1586,7 @@ class Screen(Generic[ScreenResultType], Widget):
                 ):
                     self._selecting = True
                     if select_widget is not None and select_offset is not None:
+                        self.text_selection_started_signal.publish(self)
                         self._select_start = (
                             select_widget,
                             event.screen_offset,

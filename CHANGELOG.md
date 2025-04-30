@@ -9,17 +9,91 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Fixed `OptionList` causing excessive redrawing https://github.com/Textualize/textual/pull/5766
+
+### Added
+
+- Added `toggle_class` parameter to reactives https://github.com/Textualize/textual/pull/5778
+- Added `compact` parameter and reactive to `Button`, `Input`, `ToggleButton`, `RadioSet`, `OptionList`, `TextArea` https://github.com/Textualize/textual/pull/5778
+- Added `HORIZONTAL_BREAKPOINTS` and `VERTICAL_BREAKPOINTS` to `App` and `Screen` https://github.com/Textualize/textual/pull/5779
+
+### Changed
+
+- `RadioSet` now has a default width of `1fr` https://github.com/Textualize/textual/pull/5778
+
+## [3.1.1] - 2025-04-22
+
+### Fixed
+
+- Fixed issue with tint filter https://github.com/Textualize/textual/pull/5757
+- Fixed a crash when setting keymap before app mount https://github.com/Textualize/textual/issues/5742
+
+## [3.1.0] - 2025-04-12
+
+### Fixed
+
+- Fixed markup escaping edge cases https://github.com/Textualize/textual/pull/5697
+- Fixed incorrect auto height in Collapsible https://github.com/Textualize/textual/pull/5703
+- Fixed issue with keymaps and single-letter keys https://github.com/Textualize/textual/pull/5726
+- Fixed `OptionList` size after removing or clearing options https://github.com/Textualize/textual/issues/5728
+- Fixed footer / key panel not updating when keymaps are applied https://github.com/Textualize/textual/pull/5724
+- Fixed alignment not being applied when there are min and max limits on dimensions https://github.com/Textualize/textual/pull/5732
+- Fixed issues with OptionList scrollbar not updating https://github.com/Textualize/textual/pull/5736
+- Fixed allow_focus method not overriding `can_focus()` https://github.com/Textualize/textual/pull/5737
+- Fixed overlap of Input / TextArea selection with arbitrary text selection https://github.com/Textualize/textual/pull/5739
+
+### Changed
+
+- Collapsible title now accepts str, Text, or Content https://github.com/Textualize/textual/pull/5697
+- Rich Text objects will be converted to Content in OptionList and other widgets https://github.com/Textualize/textual/pull/5712
+- Textual will always convert dim attributes to RGB by default https://github.com/Textualize/textual/pull/5715
+- Notifications will now use content markup (previously they used Console markup) https://github.com/Textualize/textual/pull/5719
+
+### Added
+
+- Added `TEXTUAL_DIM_FACTOR` env var to set the opacity of the 'dim' ANSI attribute https://github.com/Textualize/textual/pull/5715
+- `notify()` now accepts a `markup` parameter to disable rendering the message as markup https://github.com/Textualize/textual/pull/5719
+- Added `Screen.text_selection_started_signal` https://github.com/Textualize/textual/pull/5739
+- Added `App.clear_selection()` helper method to clear arbitrary text selection of active screen https://github.com/Textualize/textual/pull/5739
+
+## [3.0.1] - 2025-04-01
+
+### Fixed
+
+- Fixed issue with modal dialog not refreshing
+
+## [3.0.0] - 2025-03-27
+
+### Changed
+
+- Breaking change: `App.query` and friends will now always query the default (first) screen, not necessarily the active screen.
+- Content now has a default argument of an empty string, so `Content()` is equivalent to `Content("")`
+- Assigned names to Textual-specific threads: `textual-input`, `textual-output`. These should become visible in monitoring tools (ps, top, htop) as of Python 3.14. https://github.com/Textualize/textual/pull/5654
+- Tabs now accept Content or Textual markup https://github.com/Textualize/textual/pull/5657
+- Buttons will now use Textual markup rather than console markup
+- tree-sitter languages are now loaded lazily, improving cold-start time https://github.com/Textualize/textual/pull/563
+
+### Fixed
+
 - Static and Label now accept Content objects, satisfying type checkers https://github.com/Textualize/textual/pull/5618
 - Fixed click selection not being disabled when allow_select was set to false https://github.com/Textualize/textual/issues/5627
 - Fixed crash on clicking line API border https://github.com/Textualize/textual/pull/5641
+- Fixed Select.selection now correctly returns None if Select.BLANK is selected instead of an AssertionError
+- Fixed additional spaces after text-wrapping https://github.com/Textualize/textual/pull/5657
+- Added missing `scroll_end` parameter to the `Log.write_line` method https://github.com/Textualize/textual/pull/5672
+- Restored support for blink https://github.com/Textualize/textual/pull/5675
+- Fixed scrolling breaking on DataTable with `overflow: hidden` https://github.com/Textualize/textual/pull/5681
 
 ### Added
 
 - Added Widget.preflight_checks to perform some debug checks after a widget is instantiated, to catch common errors. https://github.com/Textualize/textual/pull/5588
+- Added text-padding style https://github.com/Textualize/textual/pull/5657
+- Added `Content.first_line` property https://github.com/Textualize/textual/pull/5657
+- Added `Content.from_text` constructor https://github.com/Textualize/textual/pull/5657
+- Added `Content.empty` constructor https://github.com/Textualize/textual/pull/5657
+- Added `Content.pad` method https://github.com/Textualize/textual/pull/5657
+- Added `Style.has_transparent_foreground` property https://github.com/Textualize/textual/pull/5657
 
-## Changed
-
-- Assigned names to Textual-specific threads: `textual-input`, `textual-output`. These should become visible in monitoring tools (ps, top, htop) as of Python 3.14. https://github.com/Textualize/textual/pull/5654
 
 ## [2.1.2] - 2025-02-26
 
@@ -82,7 +156,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- Fixed escape tags in Content markup https://github.com/Textualize/textual/pull/5536
+- Fixed escape tags in Textual markup https://github.com/Textualize/textual/pull/5536
 
 ## [2.0.0] - 2025-02-16
 
@@ -2795,6 +2869,10 @@ https://textual.textualize.io/blog/2022/11/08/version-040/#version-040
 - New handler system for messages that doesn't require inheritance
 - Improved traceback handling
 
+[3.1.1]: https://github.com/Textualize/textual/compare/v3.1.0...v3.1.1
+[3.1.0]: https://github.com/Textualize/textual/compare/v3.0.1...v3.1.0
+[3.0.1]: https://github.com/Textualize/textual/compare/v3.0.0...v3.0.1
+[3.0.0]: https://github.com/Textualize/textual/compare/v2.1.2...v3.0.0
 [2.1.2]: https://github.com/Textualize/textual/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/Textualize/textual/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/Textualize/textual/compare/v2.0.4...v2.1.0

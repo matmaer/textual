@@ -107,6 +107,7 @@ from textual.keys import (
     REPLACED_KEYS,
     _character_to_key,
     _get_unicode_name_from_key,
+    _normalize_key_list,
     format_key,
 )
 from textual.messages import CallbackType, Prune
@@ -481,6 +482,31 @@ class App(Generic[ReturnType], DOMNode):
     SUSPENDED_SCREEN_CLASS: ClassVar[str] = ""
     """Class to apply to suspended screens, or empty string for no class."""
 
+    HORIZONTAL_BREAKPOINTS: ClassVar[list[tuple[int, str]]] | None = []
+    """List of horizontal breakpoints for responsive classes.
+
+    This allows for styles to be responsive to the dimensions of the terminal.
+    For instance, you might want to show less information, or fewer columns on a narrow displays -- or more information when the terminal is sized wider than usual.
+    
+    A breakpoint consists of a tuple containing the minimum width where the class should applied, and the name of the class to set.
+
+    Note that only one class name is set, and if you should avoid having more than one breakpoint set for the same size.
+
+    Example:
+        ```python
+        # Up to 80 cells wide, the app has the class "-normal"
+        # 80 - 119 cells wide, the app has the class "-wide"
+        # 120 cells or wider, the app has the class "-very-wide"
+        HORIZONTAL_BREAKPOINTS = [(0, "-normal"), (80, "-wide"), (120, "-very-wide")]
+        ```
+    
+    """
+    VERTICAL_BREAKPOINTS: ClassVar[list[tuple[int, str]]] | None = []
+    """List of vertical breakpoints for responsive classes.
+    
+    Contents are the same as [`HORIZONTAL_BREAKPOINTS`][textual.app.App.HORIZONTAL_BREAKPOINTS], but the integer is compared to the height, rather than the width.
+    """
+
     _PSEUDO_CLASSES: ClassVar[dict[str, Callable[[App[Any]], bool]]] = {
         "focus": lambda app: app.app_focus,
         "blur": lambda app: not app.app_focus,
@@ -798,6 +824,9 @@ class App(Generic[ReturnType], DOMNode):
         self.supports_smooth_scrolling: bool = False
         """Does the terminal support smooth scrolling?"""
 
+        self._compose_screen: Screen | None = None
+        """The screen composed by App.compose."""
+
         if self.ENABLE_COMMAND_PALETTE:
             for _key, binding in self._bindings:
                 if binding.action in {"command_palette", "app.command_palette"}:
@@ -833,6 +862,10 @@ class App(Generic[ReturnType], DOMNode):
 
         return super().__init_subclass__(*args, **kwargs)
 
+    def _get_dom_base(self) -> DOMNode:
+        """When querying from the app, we want to query the default screen."""
+        return self.default_screen
+
     def validate_title(self, title: Any) -> str:
         """Make sure the title is set to a string."""
         return str(title)
@@ -840,6 +873,11 @@ class App(Generic[ReturnType], DOMNode):
     def validate_sub_title(self, sub_title: Any) -> str:
         """Make sure the subtitle is set to a string."""
         return str(sub_title)
+
+    @property
+    def default_screen(self) -> Screen:
+        """The default screen instance."""
+        return self.screen if self._compose_screen is None else self._compose_screen
 
     @property
     def workers(self) -> WorkerManager:
@@ -2675,6 +2713,7 @@ class App(Generic[ReturnType], DOMNode):
 
         if self._screen_stack:
             self.screen.post_message(events.ScreenSuspend())
+            self.screen.refresh()
         next_screen, await_mount = self._get_screen(screen)
         try:
             message_pump = active_message_pump.get()
@@ -3244,6 +3283,7 @@ class App(Generic[ReturnType], DOMNode):
 
     async def _on_compose(self) -> None:
         _rich_traceback_omit = True
+        self._compose_screen = self.screen
         try:
             widgets = [*self.screen._nodes, *compose(self)]
         except TypeError as error:
@@ -3683,6 +3723,13 @@ class App(Generic[ReturnType], DOMNode):
                 )
                 return
 
+    @classmethod
+    def _normalize_keymap(cls, keymap: Keymap) -> Keymap:
+        """Normalizes the keys in a keymap, so they use long form, i.e. "question_mark" rather than "?"."""
+        return {
+            binding_id: _normalize_key_list(keys) for binding_id, keys in keymap.items()
+        }
+
     def set_keymap(self, keymap: Keymap) -> None:
         """Set the keymap, a mapping of binding IDs to key strings.
 
@@ -3695,7 +3742,9 @@ class App(Generic[ReturnType], DOMNode):
         Args:
             keymap: A mapping of binding IDs to key strings.
         """
-        self._keymap = keymap
+
+        self._keymap = self._normalize_keymap(keymap)
+        self.refresh_bindings()
 
     def update_keymap(self, keymap: Keymap) -> None:
         """Update the App's keymap, merging with `keymap`.
@@ -3706,7 +3755,9 @@ class App(Generic[ReturnType], DOMNode):
         Args:
             keymap: A mapping of binding IDs to key strings.
         """
-        self._keymap = {**self._keymap, **keymap}
+
+        self._keymap = {**self._keymap, **self._normalize_keymap(keymap)}
+        self.refresh_bindings()
 
     def handle_bindings_clash(
         self, clashed_bindings: set[Binding], node: DOMNode
@@ -4264,6 +4315,13 @@ class App(Generic[ReturnType], DOMNode):
             # Update the toast rack.
             self.call_later(toast_rack.show, self._notifications)
 
+    def clear_selection(self) -> None:
+        """Clear text selection on the active screen."""
+        try:
+            self.screen.clear_selection()
+        except NoScreen:
+            pass
+
     def notify(
         self,
         message: str,
@@ -4271,6 +4329,7 @@ class App(Generic[ReturnType], DOMNode):
         title: str = "",
         severity: SeverityLevel = "information",
         timeout: float | None = None,
+        markup: bool = True,
     ) -> None:
         """Create a notification.
 
@@ -4284,6 +4343,7 @@ class App(Generic[ReturnType], DOMNode):
             title: The title for the notification.
             severity: The severity of the notification.
             timeout: The timeout (in seconds) for the notification, or `None` for default.
+            markup: Render the message as content markup?
 
         The `notify` method is used to create an application-wide
         notification, shown in a [`Toast`][textual.widgets._toast.Toast],
@@ -4320,7 +4380,7 @@ class App(Generic[ReturnType], DOMNode):
         """
         if timeout is None:
             timeout = self.NOTIFICATION_TIMEOUT
-        notification = Notification(message, title, severity, timeout)
+        notification = Notification(message, title, severity, timeout, markup=markup)
         self.post_message(Notify(notification))
 
     def _on_notify(self, event: Notify) -> None:

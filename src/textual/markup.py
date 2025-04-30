@@ -1,6 +1,12 @@
+"""
+Utilities related to content markup.
+
+"""
+
 from __future__ import annotations
 
 from textual.css.parse import substitute_references
+from textual.css.tokenizer import UnexpectedEnd
 
 __all__ = ["MarkupError", "escape", "to_content"]
 
@@ -26,7 +32,7 @@ if TYPE_CHECKING:
 
 
 class MarkupError(Exception):
-    """An error occurred parsing Textual markup."""
+    """An error occurred parsing content markup."""
 
 
 expect_markup_tag = (
@@ -40,7 +46,7 @@ expect_markup_tag = (
         variable_ref=VARIABLE_REF,
         whitespace=r"\s+",
     )
-    .expect_eof()
+    .expect_eof(False)
     .expect_semicolon(False)
 )
 
@@ -66,13 +72,13 @@ expect_markup_expression = (
         double_string=r"\".*?\"",
         single_string=r"'.*?'",
     )
-    .expect_eof()
+    .expect_eof(True)
     .expect_semicolon(False)
 )
 
 
 class MarkupTokenizer(TokenizerState):
-    """Tokenizes Textual markup."""
+    """Tokenizes content markup."""
 
     EXPECT = expect_markup.expect_eof()
     STATE_MAP = {
@@ -119,12 +125,22 @@ class StyleTokenizer(TokenizerState):
     }
 
 
-STYLES = {"bold", "dim", "italic", "underline", "reverse", "strike"}
+STYLES = {
+    "bold",
+    "dim",
+    "italic",
+    "underline",
+    "underline2",
+    "reverse",
+    "strike",
+    "blink",
+}
 STYLE_ABBREVIATIONS = {
     "b": "bold",
     "d": "dim",
     "i": "italic",
     "u": "underline",
+    "uu": "underline2",
     "r": "reverse",
     "s": "strike",
 }
@@ -160,7 +176,7 @@ def escape(
 
 
 def parse_style(style: str, variables: dict[str, str] | None = None) -> Style:
-    """Parse an encoded style.
+    """Parse a style with substituted variables.
 
     Args:
         style: Style encoded in a string.
@@ -292,6 +308,10 @@ def to_content(
     _rich_traceback_omit = True
     try:
         return _to_content(markup, style, template_variables)
+    except UnexpectedEnd:
+        raise MarkupError(
+            "Unexpected end of markup; are you missing a closing square bracket?"
+        ) from None
     except Exception as error:
         # Ensure all errors are wrapped in a MarkupError
         raise MarkupError(str(error)) from None

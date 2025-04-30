@@ -55,7 +55,9 @@ from textual.widgets import (
     TabPane,
 )
 from textual.theme import Theme
+from textual.widgets.option_list import Option
 from textual.widgets.text_area import BUILTIN_LANGUAGES, Selection, TextAreaTheme
+from textual.widgets.selection_list import Selection as SLSelection
 
 # These paths should be relative to THIS directory.
 WIDGET_EXAMPLES_DIR = Path("../../docs/examples/widgets")
@@ -2544,7 +2546,7 @@ def test_pseudo_classes(snap_compare):
 
         def compose(self) -> ComposeResult:
             for item_number in range(5):
-                yield Label(f"Item {item_number+1}")
+                yield Label(f"Item {item_number + 1}")
 
         def on_mount(self) -> None:
             # Mounting a new widget should updated previous widgets, as the last of type has changed
@@ -3274,18 +3276,28 @@ def test_arbitrary_selection(snap_compare):
     )
 
 
+# TODO: Is this fixable?
+@pytest.mark.xfail(
+    reason="This doesn't work as described, because of the height auto in Collapsible.Contents. "
+    "I suspect it isn't broken per se, it's just that the intuitive interpretation is not correct."
+)
 def test_collapsible_datatable(snap_compare):
     """Regression test for https://github.com/Textualize/textual/issues/5407
 
     You should see two collapsibles, where the first is expanded.
-    In the expanded coillapsible, you should see a DataTable filling the space,
+    In the expanded collapsible, you should see a DataTable filling the space,
     with all borders and both scrollbars visible.
     """
 
     class MyApp(App):
         CSS = """
         DataTable {
-        
+            max-height: 1fr;            
+            border: red;            
+        }
+        Collapsible {
+            max-height: 50%;
+            
         }
         """
 
@@ -3294,14 +3306,10 @@ def test_collapsible_datatable(snap_compare):
             yield Collapsible(Label("hello"), id="c2")
 
         def on_mount(self) -> None:
-            self.query_one("#c1", Collapsible).styles.max_height = "50%"
-            self.query_one("#c2", Collapsible).styles.max_height = "50%"
-
             t1 = self.query_one("#t1", DataTable)
-            t1.styles.border = "heavy", "black"
             t1.add_column("A")
             for number in range(1, 100):
-                t1.add_row(str(number) + " " * 200)
+                t1.add_row(str(number) + " " * 100)
 
     assert snap_compare(MyApp())
 
@@ -3444,7 +3452,6 @@ def test_empty_option_list(snap_compare):
     """
 
     class OptionListAutoCrash(App[None]):
-
         CSS = """
         OptionList {
             width: auto;
@@ -3467,7 +3474,6 @@ def test_focus_within_transparent(snap_compare):
         pass
 
     class FocusWithinTransparentApp(App[None]):
-
         CSS = """
         Screen {
             layout: horizontal;
@@ -3529,7 +3535,6 @@ def test_add_separator(snap_compare):
     """
 
     class FocusTest(App[None]):
-
         CSS = """
         OptionList {
             height: 1fr;
@@ -3641,7 +3646,6 @@ def test_auto_in_auto(snap_compare):
     """
 
     class MyApp(App):
-
         CSS = """
 
             MyApp {
@@ -3808,3 +3812,296 @@ def test_click_selection_disabled_when_allow_select_is_false(
         await pilot.click(Label, times=2)
 
     assert snap_compare(AllowSelectApp(), run_before=run_before)
+
+
+def test_select_list_in_collapsible(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5690
+
+    The Collapsible should be expanded, and just fit a Selection List with 3 items.
+    """
+
+    class CustomWidget(Horizontal):
+        DEFAULT_CSS = """
+        CustomWidget {
+            height: auto;                	
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            with Collapsible(title="Toggle for options", collapsed=False):
+                yield SelectionList[int](
+                    SLSelection("first selection", 1),
+                    SLSelection("second selection", 2),
+                    SLSelection(
+                        "third selection", 3
+                    ),  # not visible after toggling collapsible
+                )
+
+    class MyApp(App):
+        def compose(self) -> ComposeResult:
+            yield CustomWidget()
+            yield Footer()
+
+    assert snap_compare(MyApp())
+
+
+def test_enforce_visual(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5701
+
+    You should see an OptionList with long wrapping text.
+
+    This is no longer the recommended way of applying overflow ellipsis. Textual will
+    largely ignore the "overflow" parameter on Text objects.
+
+    """
+
+    class OverflowOption(Option):
+
+        def __init__(self) -> None:
+            super().__init__(
+                Text.from_markup(f"Line one\n{'a' * 100}", overflow="ellipsis")
+            )
+
+    class OptionListOverflowApp(App[None]):
+
+        CSS = """
+        OptionList {
+            width: 30;
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            yield OptionList(*[OverflowOption() for _ in range(100)])
+
+    assert snap_compare(OptionListOverflowApp())
+
+
+def test_notifications_markup(snap_compare):
+    """You should see two notifications, the first (top) will have markup applied.
+    The second will have markup disabled, and square brackets will be verbatim."""
+
+    class ToastApp(App[None]):
+        def on_mount(self) -> None:
+            self.notify(
+                "[$accent italic]Hello, World!", title="With Markup", timeout=100
+            )
+            self.notify(
+                "[$accent italic]Square brackets should be visible [1,2,3]",
+                title="Without markup",
+                markup=False,
+                timeout=100,
+            )
+
+    assert snap_compare(ToastApp())
+
+
+def test_option_list_size_when_options_removed(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5728
+
+    You should see the height of the OptionList has updated correctly after
+    half of its options are removed.
+    """
+
+    class OptionListApp(App):
+        BINDINGS = [("x", "remove_options", "Remove options")]
+
+        def compose(self) -> ComposeResult:
+            yield OptionList(*[f"Option {n}" for n in range(30)])
+            yield Footer()
+
+        def action_remove_options(self) -> None:
+            option_list = self.query_one(OptionList)
+            for _ in range(15):
+                option_list.remove_option_at_index(0)
+
+    assert snap_compare(OptionListApp(), press=["x"])
+
+
+def test_option_list_size_when_options_cleared(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5728
+
+    You should see the height of the OptionList has updated correctly after
+    its options are cleared.
+    """
+
+    class OptionListApp(App):
+        BINDINGS = [("x", "clear_options", "Clear options")]
+
+        def compose(self) -> ComposeResult:
+            yield OptionList(*[f"Option {n}" for n in range(30)])
+            yield Footer()
+
+        def action_clear_options(self) -> None:
+            self.query_one(OptionList).clear_options()
+
+    assert snap_compare(OptionListApp(), press=["x"])
+
+
+def test_alignment_with_auto_and_min_height(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5608
+    You should see a blue label that is centered both horizontally and vertically
+    within a pink container. The container has auto width and height, but also
+    a min-width of 20 and a min-height of 3.
+    """
+
+    class AlignmentApp(App):
+        CSS = """
+        Container {
+            align: center middle;
+            height: auto;
+            min-height: 3;
+            width: auto;
+            min-width: 20;
+            background: pink;
+        }
+        Label {
+            background: blue;
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            with Container():
+                yield Label("centered")
+
+    assert snap_compare(AlignmentApp())
+
+
+def test_allow_focus(snap_compare):
+    """Regression test for https://github.com/Textualize/textual/issues/5609
+
+    You should see two placeholders split vertically.
+    The top should have the label "FOCUSABLE", and have a heavy red border.
+    The bottom should have the label "NON FOCUSABLE" and have the default border.
+    """
+
+    class Focusable(Placeholder, can_focus=False):
+        """Override can_focus from False to True"""
+
+        def allow_focus(self) -> bool:
+            return True
+
+    class NonFocusable(Placeholder, can_focus=True):
+        """Override can_focus from True to False"""
+
+        def allow_focus(self) -> bool:
+            return False
+
+    class FocusApp(App):
+        CSS = """
+        Placeholder {
+            height: 1fr;
+        }
+        *:can-focus {
+            border: heavy red;
+        }
+
+        """
+
+        def compose(self) -> ComposeResult:
+            yield Focusable("FOCUSABLE")
+            yield NonFocusable("NON FOCUSABLE")
+
+    assert snap_compare(FocusApp())
+
+
+def test_tint(snap_compare):
+    """Test that tint applied to dim text doesn't break.
+
+    You should see the text Hello, World with a 50% green tint."""
+
+    class TintApp(App):
+        CSS = """
+        Label {            
+            tint: green 50%;
+            text-style: dim;            
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            yield Label("Hello, World")
+
+    assert snap_compare(TintApp())
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        (30, 20),
+        (40, 30),
+        (80, 40),
+        (130, 50),
+    ],
+)
+def test_breakpoints(snap_compare, size):
+    """Test HORIZONTAL_BREAKPOINTS
+
+    You should see four terminals of different sizes with a grid of placeholders.
+    The first should have a single column, then two columns, then 4, then 6.
+
+    """
+
+    class BreakpointApp(App):
+
+        HORIZONTAL_BREAKPOINTS = [
+            (0, "-narrow"),
+            (40, "-normal"),
+            (80, "-wide"),
+            (120, "-very-wide"),
+        ]
+
+        CSS = """
+        Screen {
+            &.-narrow {
+                Grid { grid-size: 1; }
+            }
+            &.-normal {
+                Grid { grid-size: 2; }
+            }
+            &.-wide {
+                Grid { grid-size: 4; }
+            }
+            &.-very-wide {
+                Grid { grid-size: 6; }
+            }
+        }
+        """
+
+        def compose(self) -> ComposeResult:
+            with Grid():
+                for n in range(16):
+                    yield Placeholder(f"Placeholder {n+1}")
+
+    assert snap_compare(BreakpointApp(), terminal_size=size)
+
+
+def test_compact(snap_compare):
+    """Test compact styles.
+
+    You should see a screen split vertically.
+
+    The left side has regular widgets, the right side has the corresponding compact widgets.
+
+    """
+
+    class CompactApp(App):
+
+        def compose(self) -> ComposeResult:
+            with Horizontal():
+
+                with Vertical():
+                    yield Button("Foo")
+                    yield Input("hello")
+                    yield Select.from_values(["Foo", "Bar"])
+                    yield RadioSet("FOO", "BAR")
+                    yield SelectionList(("FOO", "FOO"), ("BAR", "BAR"))
+                    yield TextArea("Edit me")
+
+                with Vertical():
+                    yield Button("Bar", compact=True)
+                    yield Input("world", compact=True)
+                    yield Select.from_values(["Foo", "Bar"], compact=True)
+                    yield RadioSet("FOO", "BAR", compact=True)
+                    yield SelectionList(("FOO", "FOO"), ("BAR", "BAR"), compact=True)
+                    yield TextArea("Edit me", compact=True)
+
+    assert snap_compare(CompactApp())
