@@ -56,7 +56,7 @@ SPECIAL_KEY_TO_CHARACTER: Final = {
     "enter": "\r",
     "tab": "\t",
 }
-"""Explcit characters for keys, used in Kitty protocol parsing"""
+"""Explicit characters for keys, used in Kitty protocol parsing"""
 
 
 class XTermParser(Parser[Message]):
