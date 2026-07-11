@@ -258,10 +258,10 @@ class SelectState(NamedTuple):
         return start_offset, end_offset
 
     def update_end(self, pointer_offset: Offset, select_end: SelectEnd) -> SelectState:
-        """Update the state with the selction end.
+        """Update the state with the selection end.
 
         Args:
-            pointer_offset: Current mosue position.
+            pointer_offset: Current mouse position.
             select_end: Selection end.
 
         Returns:
